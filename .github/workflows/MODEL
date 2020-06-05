@@ -1,0 +1,185 @@
+#Importing NumPy,Pandas,Statsmodels Libraries
+import pandas as pd
+import numpy as np
+import statsmodels.api as sm
+import scipy.stats
+pd.set_option('max_colwidth', 100)
+
+def binary(column, x):
+    for i in range(0, len(test[column])):
+        if df.loc[i, column] == x:
+            df.loc[i, column] = 1
+        else:
+            df.loc[i, column] = 0
+
+
+def country(i):
+    if df.loc[i, 'region'] == 'southwest':
+        return 1, 0, 0
+    elif df.loc[i, 'region'] == 'southeast':
+        return 0, 1, 0
+    elif df.loc[i, 'region'] == 'northwest':
+        return 0, 0, 1
+    else:
+        return 0, 0, 0
+
+
+def regress(y, x):
+    ones = np.ones(len(x[0]))
+    X = sm.add_constant(np.column_stack((x[0], ones)))
+    for t in x[1:]:
+        X = sm.add_constant(np.column_stack((t, X)))
+    results = sm.OLS(y, X).fit()
+    global Pt,coef,R2,F,Rsq,Coef,R2_
+    Pt = results.pvalues
+    coef = results.params
+    R2,Rsq,R2_=results.rsquared,results.rsquared,results.rsquared
+    F=results.fvalue
+    return results
+
+def hypot(N):
+    print(f'\nH0 hypothesis: x1 = x2 =... x{N} = 0 (There is no linear relationship between y and x1, x2... x{N})')
+    F_сrit = scipy.stats.f.ppf(q=1 - 0.05, dfn=N, dfd=1337-N)
+    if F > F_сrit:
+        print('  The hypothesis H0 is rejected. The linear link is between y and at least one x')
+    else:
+        print('  The hypothesis H0 is rejected')
+
+def max_Pt():
+    if max(Pt)>0.05:
+        print('\n Max Pt = ', max(Pt))
+    else:
+        print('\n Max Pt significant = ', max(Pt))
+
+
+#Reading the file and creating the object DataFrame
+test = pd.read_csv('insurance.csv', sep=',')
+df = pd.DataFrame(test)
+
+#Converting text columns to numeric form
+binary('sex', 'male')
+binary('smoker', 'yes')
+
+#Changing column data type to int type
+df['sex'] = df['sex'].astype('int')
+df['smoker'] = df['smoker'].astype('int')
+
+# Converting one column 'region' to three columns for further processing
+df['region1'], df['region2'], df['region3'] = 0, 0, 0
+for i in range(0, len(test['region'])):
+    test.loc[i, 'region1'], test.loc[i, 'region2'], test.loc[i, 'region3'] = country(i)
+del df['region']
+df = df[['charges', 'sex', 'bmi', 'children', 'smoker', 'region1', 'region2', 'region3', 'age']]
+#####################################################################################################################################################################################
+
+#analysis of interrelations
+print('\n Correlation table \n ', df.corr())
+print('\n\nThe link only between smoking and charges is strong and direct\n\n')
+
+#Preparing data and displaying OLS Region
+y = df['charges'].to_numpy()
+x = [df['sex'].to_numpy(), df['bmi'].to_numpy(), df['children'].to_numpy(), df['smoker'].to_numpy(), df['region1'].to_numpy(), df['region2'].to_numpy(), df['region3'].to_numpy(), df['age'].to_numpy()]
+print(regress(y, x).summary())
+R2_8 = R2_
+
+#Check of a hypothesis #search of non-significant factors #Deleting a non-significant factor #Removal of non-significant factors
+hypot(8)
+max_Pt()
+df=df.replace('sex')
+x.pop(0)
+regress(y, x).summary()
+
+#Check of a hypothesis #search of non-significant factors #Deleting a non-significant factor #Removal of non-significant factors
+hypot(7)
+max_Pt()
+df=df.replace('region3')
+x.pop(5)
+regress(y, x).summary()
+
+#Check of a hypothesis #search of non-significant factors #Deleting a non-significant factor #Removal of non-significant factors
+hypot(6)
+max_Pt()
+df=df.replace('region1')
+x.pop(3)
+regress(y, x).summary()
+
+#Check of a hypothesis #search of non-significant factors #Deleting a non-significant factor #Removal of non-significant factors
+hypot(5)
+max_Pt()
+df=df.replace('region2')
+x.pop(3)
+regress(y, x).summary()
+
+#Check of a hypothesis #search of non-significant factors #Remove less significant factor #Building a table for analysis
+hypot(4)
+max_Pt()
+table = pd.DataFrame()
+for i in range(0,4):
+    table.loc[i,0]=coef[i]
+table.loc[0, 2] = Rsq
+table.loc[0, 3] = F
+R2_4 = R2_
+df=df.replace('children')
+x.pop(1)
+regress(y, x).summary()
+
+#Check of a hypothesis #search of non-significant factors #Remove less significant factor #Building a table for analysis
+hypot(3)
+max_Pt()
+for i in range(0,3):
+    table.loc[4+i,0]=coef[i]
+table.loc[4, 2] = Rsq
+table.loc[4, 3] = F
+df=df.replace('bmi')
+x.pop(0)
+regress(y, x).summary()
+
+#Check of a hypothesis #search of non-significant factors #Remove less significant factor #Building a table for analysis
+hypot(2)
+max_Pt()
+for i in range(0,2):
+    table.loc[7+i,0]=coef[i]
+table.loc[7, 2] = Rsq
+table.loc[7, 3] = F
+df=df.replace('age')
+x.pop(1)
+regress(y, x).summary()
+for i in range(0,1):
+    table.loc[9+i,0]=coef[i]
+table.loc[9, 2] = Rsq
+table.loc[9, 3] = F
+table.index = ['age(4)', 'smoker(4)', 'children(4)', 'bmi(4)','age(3)', 'smoker(3)','bmi(3)','age(2)', 'smoker(2)', 'smoker(1)']
+table.columns =['bj', 'ryxj','F']
+print('\n\nSelecting the number of variables in the model:\n',table)
+print("\n\n We choose a model with four variables because adding new variables to other models does not change the factors\n\n")
+
+#printing the selected model
+x = [df['bmi'].to_numpy(),df['children'].to_numpy(), df['smoker'].to_numpy(), df['age'].to_numpy()]
+print(regress(y, x).summary())
+print('\n\nDetermination coefficient = 0.750 = 0.75% - 4 factors have 75 percent impact on charges\n\n')
+
+#R^2 analysis
+R2 = pd.DataFrame({"value,%":[R2_8 ,1 - R2_8,R2_4,R2_8 - R2_4],"Conclusion":['-','Proportion of influence of factors not taken into account (which are not in the initial model at all)','Total share of influence of 4x factors','Share of impact of excluded factors']})
+R2.index = ['R^2(8)', '1 - R^2(8)','R^2(4)','R^2(8)-R^2(4)']
+print('analysis of R^2\n',R2)
+
+#factor analysis
+factor= pd.DataFrame({"Factor":[321.8514,473.5023,2.381e+04,257.8495],"Conclusion":['Income will increase by 321 units on average if bmi increases by 1','Income will increase by 473 units per child per person','Income will increase by 23811 units on average if a person smokes','Income will increase by 257 units on average, with an increase in the age of a person by 1 year'] })
+factor.index = ['bmi', 'children','smoker','age']
+print('\n\nfactor analysis\n',factor)
+
+#print model
+print(f"\n\nModel: Y = age *  {coef[0]} + smoker * {coef[1]} + children * {coef[2]} + bmi * {coef[3]} + {coef[4]}")
+
+#approximation coefficient calculation
+predic,rest,A= [],[],[]
+for i in range(0,len(test['charges'])):
+    predic.append(coef[0] *df.loc[i, 'age'] +coef[1]* df.loc[i, 'smoker'] + coef[2]* df.loc[i, 'children'] + coef[3] * df.loc[i, 'bmi'] + coef[4] )
+    rest.append(df.loc[i, 'charges'] - predic[i])
+    A.append(abs(rest[i])/df.loc[i, 'charges'])
+APR = sum(A)/1338
+print( f'Approximation error =  {APR}%, Average error of testing is more than 10 percent, the model should not be applied in practice')
+
+
+
+
